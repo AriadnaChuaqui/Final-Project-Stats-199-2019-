@@ -1,0 +1,241 @@
+---
+title: "FIFA 19 players"
+author: "SPT Squad"
+date: "October 25, 2019"
+output: github_document
+---
+
+### Section 1. Introduction
+
+FIFA, also known as FIFA Soccer or FIFA Football, is a series of soccer video game simulations released annually by EA Sports. The FIFA series is listed in the Guinness World Records as the best-selling sports video game franchise in the world, by 2018, the FIFA series had sold over 260 million copies. 
+
+Our particular dataset focuses on the iteration of the game from 2019, FIFA 19. The dataset is from Kaggle (https://www.kaggle.com/karangadiya/fifa19). It includes detailed attributes for every registeded player in the game (18,000+). The data was scraped from a comprehensive online database for FIFA enthusiasts, https://sofifa.com/. Some of the more important variables include: full name, age, nationality, overall rating (out of 99), club, wage, dominant foot, international reputation, body type, position, among many other attributes across players. The benefit of the dataset is that it is all-encompassing, it has the attributes for every single player in the game so we are working with a random sample of the entire population of FIFA players in FIFA 19 (no sampling or response bias), which means our inference and analysis will be applicable to the entire population of FIFA players. Additionally, the dataset is very comprehensive: there are a lot of variables to work with which will give our model stronger predictive power as well as the ability to fine-tune the independent variables.
+
+Among the FIFA community, player ratings are a highly debated topic. A player's overall rating is the most universal way to measure how good a player is in FIFA. Soccer players in real life often care about these ratings too!
+
+Should Lionel Messi deserve to have a higher rating than Cristiano Ronaldo? Is Neymar rated too highly given that he is a young player? With this dataset, we will be able to perform statistical inference on the characteristics related to a high player rating, as well as compare players between different groups (teams, nationalities, foot dominance, etc). We will discuss our specific research questions in section 3 of this proposal.
+
+### Section 2. Exploratory data analysis
+
+#### Load packages and data
+
+```{r load-packages, message = FALSE}
+library(broom)
+library(dplyr)
+library(readr)
+library(tidyverse)
+```
+
+```{r load-data, message = FALSE}
+rawdata <- read_csv("../data/data.csv")
+```
+
+#### Initial data cleaning
+
+We remove any observations with missing data - some obscure and unknown players in the game have misisng values for some variables. We believe that it is appropriate to remove these observations before our random sampling.
+
+```{r remove-na-values}
+rawdata <- na.omit(rawdata)
+```
+
+We select a simple random sample of 1000 players from our dataset. We want to make sure our inference can be extrapolated for the population with a high enough power, so we use a relatively large random sample to make sure we have enough observations to draw conclusions.
+
+```{r random-sampling}
+set.seed(5)
+fifa <- sample_n(rawdata, 1000)
+```
+
+We clean and change the formatting of two particular variables: `Wage` and `Value` so that they can be worked with as numbers in our data analysis as opposed to a string of characters (i.e. '€500K').
+
+```{r remove-currency-signs}
+fifa$Value <- substring(fifa$Value, 2)
+fifa$Wage <- substring(fifa$Wage, 2)
+```
+
+```{r convert-currency-to-numeric}
+fifa <- fifa %>%
+  mutate(Wage = case_when(
+    str_sub(Wage, -1) == "M" ~ (parse_number(Wage)*1000000),
+    str_sub(Wage, -1) == "K" ~ (parse_number(Wage)*1000)
+  ), Value = case_when(
+    str_sub(Value, -1) == "M" ~ (parse_number(Value)*1000000),
+    str_sub(Value, -1) == "K" ~ (parse_number(Value)*1000)
+  ))
+```
+
+#### Univariate analysis
+
+Before we explore relationships between our variables, we visualize and look at the summary statistics for some of our important variables: `Overall`, `Potential`, `Age`, `Preferred Foot`, and `International Reputation`.
+
+```{r overall-rating-distribution}
+ggplot(fifa, mapping = aes(x = Overall)) +
+  geom_histogram(binwidth = 1) +
+  labs(title = "Distribution of Overall Player Ratings", 
+       x = "Overall Rating (From 0 to 99)", y = "Frequency")
+
+summarise(fifa, mean = mean(Overall), sd=sd(Overall)) 
+```
+
+The distribution of `Overall` is approximately normal with mean 66.0 and standard deviation of 7.01. This is to be expected - the game must have a balance of players with low, medium, and high overall ratings.
+
+```{r potential-rating-distribution}
+ggplot(fifa, mapping = aes(x = Potential)) +
+  geom_histogram(binwidth = 1) +
+  labs(title = "Distribution of Potential Player Ratings", 
+       x = "Potential Rating (From 0 to 99)", y = "Frequency")
+
+summarise(fifa, mean = mean(Potential), sd=sd(Potential)) 
+```
+
+The distribution of `Potential` is approximately normal with mean 71.0 and standard deviation of 6.14. It is also worth nothing that the mean of `Potential` is higher than the mean of `Overall`. This makes sense - many young players have lower `Overall` ratings but higher `Potential` ratings, relatively.
+
+```{r age-distribution}
+ggplot(fifa, mapping = aes(x = Age)) +
+  geom_histogram(binwidth = 1) +
+  labs(title = "Distribution of Player Age", 
+       x = "Current Age", y = "Frequency") + geom_density()
+
+summarise(fifa, mean = mean(Age), sd=sd(Age))
+```
+
+The distribution of player ages is relatively symmetric with mean 25.3 and standard deviation 4.84. There are some very young players in our dataset (younger than 18) and some older players (older than 35). 
+
+```{r preferred-foot-frequency}
+ggplot(fifa, mapping = aes(x = `Preferred Foot`)) +
+  geom_bar() +
+  labs(title = "Frequency of Player Footedness", 
+       x = "Preferred Foot", y = "Frequency")
+
+fifa %>%
+  count(`Preferred Foot`) %>%
+  mutate(proportion = n/sum(n))
+```
+
+Unsurprisingly, the large majority of players prefer their right foot. Specifically, 22.6% of players in our random sample prefer their left foot while 77.4% of players in our random sample prefer their right foot.
+
+```{r international_rep-frequency}
+fifa <- fifa %>%
+  mutate(`International Reputation` = case_when(
+    `International Reputation` == 1 ~ "Unknown",
+    `International Reputation` == 2 ~ "Coming Up",
+    `International Reputation` == 3 ~ "Well-Known",
+    `International Reputation` == 4 ~ "Star",
+    `International Reputation` == 5 ~ "Superstar"
+  )) %>%
+  mutate(`International Reputation`= factor(`International Reputation`,
+                                            levels = c(
+    "Unknown", "Coming Up", "Well-Known", "Star", "Superstar")))
+
+ggplot(fifa, mapping = aes(x = `International Reputation`)) +
+  geom_bar() +
+  labs(title = "Frequency of International Reputation", 
+       x = "International Reputation", y = "Frequency")
+
+fifa %>%
+  count(`International Reputation`) %>%
+  mutate(proportion = n/sum(n))
+```
+
+From our visualization and relative frequency table, we can see that an overwhelming majority of the players in our random sample have `International Reputation` designation of "Unknown" at 91.6%. Only 0.4% of players in our random sample have "Star" as their designation for `International Reputation`. Our random sample of 1000 players does not yield any players that have their `International Reputation` variable value as "Superstar" as there are only 6 players in the entire dataset that have this designation.
+
+#### Bivariate analysis
+
+```{r marketval-wage}
+ggplot(fifa, aes(x = Wage, y = Value)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, colour = "red") +
+  labs(x = "Player Wage (in Euros)",
+       y = "Player Market Value (in Euros)", 
+       title = "Relationship between Wage and Market Value") +
+  scale_x_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = scales::comma)
+```
+
+Wage is the amount of money that a club will have to pay for a certain player in FIFA. The market value is the transfer value in which a club must pay to acquire a player. The amount of money that a player earns in FIFA should be related to their transfer market value. We observe a positive relationship - the higher a player's wage the higher is the market value. We see that the vast majority of the data is concentrated in the bottom left of the graph with a few players having much higher wages and market values.
+
+```{r finishing-overall}
+ggplot(fifa, aes(x = Finishing, y = Overall)) +
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE, colour = "red") +
+  labs(x = "Finishing Ability Rating (From 0 to 99)",
+       y = "Overall Rating (From 0 to 99)", 
+       title = "Relationship between Finishing Ability and Overall Rating")
+```
+
+The ability for a soccer player in FIFA (and in real life) to finish around the net is crucial. Therefore, we look at the relationship between players' finishing ability (rated from 0 to 99) and their overall rating (rated from 0 to 99). As expected, we see a positive relationship between finishing ability and overall rating. 
+
+```{r finishing-value}
+ggplot(fifa, aes(x = Finishing, y = Value)) +
+  geom_point() +
+  geom_jitter() +
+  geom_smooth(method = "lm", se = FALSE, colour = "red") +
+  labs(x = "Finishing Ability Rating (From 0 to 99)",
+       y = "Market Value (in Euros)", 
+       title = "Relationship between Finishing Ability and Market Value") +
+  scale_y_continuous(labels = scales::comma)
+```
+
+Now we look at the relationship between finishing ability and market value. There is a positive relationship between finishing ability and market value - those who have higher finishing ability ratings are expected to have higher market values. It is also worth noting that at the higher end of finishing ability ratings some players make a lot more than others with similar finishing ratings. This could be because of other factors such as `International Reputation` and even the team that the player plays for.
+
+```{r position-potential}
+ggplot(data = fifa, mapping = aes(x = `Position`, y = `Potential`)) +
+  geom_boxplot() +
+  labs(x = "Position",
+       y = "Potential Rating (From 0 to 99)", 
+       title = "Potential Rating by Position")
+```
+
+In this visualization, we use a boxplot to look at players' potential rating (from 0 to 99). The potential rating is important to see which players have a chance to increase their current overall rating. We see here that players that play the left field position generally have higher potential ratings compared to other positions.
+
+```{r foot_pref-overall}
+ggplot(data = fifa, mapping = aes(x = `Preferred Foot`, y = `Overall`)) +
+  geom_boxplot() + 
+  labs(x = "Preferred Foot",
+       y = "Overall Rating (From 0 to 99)", 
+       title = "Overall Rating by Foot Preference")
+```
+
+Many of the most famous and talented FIFA players are left-footed, such as Lionel Messi and Arjen Robben. In this visualization, we want to compare overall ratings by foot preference. The visualization shows that left-footed and right-footed players are very similar when it comes to overall rating.
+
+```{r international_rep-overall}
+ggplot(data = fifa, mapping = aes(x = `International Reputation`,
+                                  y = `Overall`)) +
+  geom_boxplot() +
+  labs(x = "International Reputation",
+       y = "Overall Rating (From 0 to 99)", 
+       title = "Overall Rating by International Reputation")
+```
+
+In this visualizaiton we explore overall rating by international reputation. The results are what we expected - those who have "Star" designation have the highest overall rating. 
+
+Based on our findings in the exploratory data analysis, we are ready to explore the research questions we would like to answer and what factors will be important in answering the questions. 
+
+### Section 3. Research questions
+
+#### Question 1: What are the characteristics that have a statistically significant impact on a player's overall rating?
+
+**Dependent variable:** `Overall` (overall rating)
+**Independent variables:** `Age`, `Value`, `Wage`, `International Reputation`, `Potenial`, `Finishing`, `Preferred Foot`, `Position`
+**Comparison groups:** `Nationality`, `Club`, `Body Type`
+**Hypothesis:** Out of the above independent variables, we expect `Value`, `Wage`, `International Reputation`, `Potential`, and `Finishing` to have a statistically significant impact on overall rating based on our exploratory data analysis.
+
+#### Question Two: Do players who are certain positions have higher market value compared to other positions? More specifically, do strikers have higher market value compared to their counterparts who play other positions? 
+
+**Dependent variable:** `Value` (market value)
+**Independent variables:** `Position` (all associated dummy variables because `Position` is a factor variable)
+**Comparison group:** `Club`, `Nationality`, `Preferred Foot`
+**Hypothesis:** If a player's postition is striker, then he will be traded at a higher market value in comparison to an otherwise similar player whose position is not striker. This makes sense - the most heralded players that are paid the most tend to be that score the most goals (usually strikers); however, there are some very high profile defenders in FIFA as well.
+
+### Section 4. Data
+
+We provide glimpses of the overall dataset as well as the random sample of 1000 observations that we will be working with.
+
+```{r data}
+glimpse(rawdata) 
+glimpse(fifa)
+```
+
+```{r export}
+write.csv(fifa,'dataWorkingSample.csv')
+```

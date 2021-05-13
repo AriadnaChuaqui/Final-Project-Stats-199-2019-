@@ -1,0 +1,38 @@
+---
+title: "Topic ideas"
+author: "SPT Sqaud"
+date: "10/11/19"
+output: github_document
+---
+
+## Topic Ideas
+
+### Idea #1
+
+Drug use at Duke University. How likely are people who used drugs in high school to use drugs in college? How does drug use vary between Trinity and Pratt?
+
+### Idea #2
+
+Characteristics of popular anime
+28 variables, 77,911 observations.
+
+### Idea #3 
+
+Characteristics of victims of police shootings in 2015.
+
+### Idea #4
+Bob Ross - painting by the numbers. How have Bob Ross' paintings changed over seasons?
+
+https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-08-06
+
+## Datasets
+
+### Dataset #1
+
+Related to idea #3. 2015 Police Killings Dataset from FiveThirtyEight. 
+https://github.com/fivethirtyeight/data/tree/master/police-killings
+
+### Dataset #2
+Related to idea #2. Anime Dataset from TidyTuesday. 
+
+https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-04-23
